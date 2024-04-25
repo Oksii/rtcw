@@ -1,0 +1,75 @@
+FROM debian:stable-slim AS builder
+ENV DEBIAN_FRONTEND noninteractive
+
+# Install dependencies
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y wget unzip curl jq bbe \
+    && rm -rf /var/lib/apt/lists/*
+
+# Define build arguments
+ARG STATIC_URL_BASEGAME
+
+# Fetch and unpack the appropriate game files
+RUN mkdir -p /output/main/ && \
+    curl -SL "$STATIC_URL_BASEGAME" -o /output/rtcw.zip && \
+    unzip -d /output/main /output/rtcw.zip && \
+    rm -rf /output/rtcw.zip
+
+ADD fetchRtcwPro.sh /output/fetchRtcwPro.sh
+RUN datapath="/output/rtcwpro-data" bash /output/fetchRtcwPro.sh "133239597" && \
+    mv /output/rtcwpro-data/rtcwpro /output/ && \
+    mv /output/rtcwpro-data/wolfded.x86 /output/ && \
+    rm -rf /output/rtcwpro-data
+
+RUN unzip /output/main/mp_bin.pk3 -d /output/main && \
+    rm -rf /output/main/*.dll
+
+#RUN wget --header="Host: msh100.uk" https://199.19.224.89/files/rtcw-binaries.tar.gz --no-check-certificate && \
+#    md5sum rtcw-binaries.tar.gz | cut -d' ' -f1 | grep 29ecb883c5657d3620a7d2dec7a0657f && \
+#    tar -xvf rtcw-binaries.tar.gz && \
+#    cp -r binaries/main/* /output/main/
+
+#RUN wget --header="Host: msh100.uk" https://199.19.224.89/files/libnoquery.so --no-check-certificate && \
+#    md5sum libnoquery.so | cut -d' ' -f1 | grep 91d9c6fd56392c60461c996ca29d6467
+
+# Final stage
+FROM debian:stable-slim
+ENV DEBIAN_FRONTEND noninteractive
+RUN dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y wget libc6-i386 libc6:i386 unzip git bbe qstat
+
+RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
+    md5sum jq-linux64 | cut -d' ' -f1 | grep 1fffde9f3c7944f063265e9a5e67ae4f && \
+    mv jq-linux64 /usr/bin/jq && \
+    chmod +x /usr/bin/jq
+
+RUN wget http://archive.debian.org/debian/pool/main/g/gcc-2.95/libstdc++2.10-glibc2.2_2.95.4-27_i386.deb && \
+    md5sum libstdc++2.10-glibc2.2_2.95.4-27_i386.deb | cut -d' ' -f1 | grep fa8e4293fa233399a2db248625355a77 && \
+    dpkg -i libstdc++2.10-glibc2.2_2.95.4-27_i386.deb && \
+    rm -rf libstdc++2.10-glibc2.2_2.95.4-27_i386.deb
+
+RUN wget https://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
+    mv icecon_linux_amd64 /bin/icecon && \
+    chmod +x /bin/icecon
+
+RUN useradd -ms /bin/bash game
+
+USER game
+WORKDIR /home/game
+
+COPY --chown=game:game --from=builder /output/ /home/game
+COPY --chown=game:game entrypoint.sh /home/game/start
+COPY --chown=game:game autorestart.sh /home/game/autorestart
+RUN chmod +x /home/game/start /home/game/autorestart
+
+# Clone legacy-config repository
+RUN git clone --depth 1 "https://github.com/Oksii/rtcw-config.git" \
+    /home/game/settings/
+
+EXPOSE 27960/udp
+
+ENTRYPOINT ["/home/game/start"]

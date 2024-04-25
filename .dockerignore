@@ -1,0 +1,7 @@
+# Ignore all files except Dockerfiles and entrypoint.sh
+*
+!Dockerfile
+!autorestart.sh
+!entrypoint.sh
+!fetchRtcwPro.sh
+!README.md
