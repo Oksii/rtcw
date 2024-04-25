@@ -1,4 +1,4 @@
-# ORIGINAL: [msh100/rtcw](https://github.com/msh100/rtcw). 
+# ORIGINAL: [msh100/rtcw](https://github.com/msh100/rtcw)
 
 Minor additions/adjustments to be more consistent with our orchestration needs. 
  * Included activity check for auto restarts via cron and watchtower
