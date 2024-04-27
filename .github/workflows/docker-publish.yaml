@@ -20,10 +20,17 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker Image (Latest)
-        run: docker build --no-cache --build-arg STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }} -f Dockerfile -t rtcwdocker/rtcw:latest .
+        run: docker build --no-cache --build-arg STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }} -f Dockerfile.latest -t rtcwdocker/rtcw:latest .
 
       - name: Push Docker Image (Latest)
         run: docker push rtcwdocker/rtcw:latest
+
+      - name: Build Docker Image (dev)
+        run: docker build --no-cache --build-arg STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }} -f Dockerfile.dev -t rtcwdocker/rtcw:dev .
+
+      - name: Push Docker Image (dev)
+        run: docker push rtcwdocker/rtcw:dev
+
  
   send-api-request:
     runs-on: ubuntu-latest
