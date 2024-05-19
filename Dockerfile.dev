@@ -40,7 +40,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN dpkg --add-architecture i386 && \
     apt-get update && \
     apt-get -y upgrade && \
-    apt-get install -y wget libc6-i386 libc6:i386 unzip git bbe qstat
+    apt-get install -y wget libc6-i386 libc6:i386 unzip git bbe qstat curl
 
 RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
     md5sum jq-linux64 | cut -d' ' -f1 | grep 1fffde9f3c7944f063265e9a5e67ae4f && \
