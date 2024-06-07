@@ -86,5 +86,10 @@ possible or create a custom `SETTINGSURL`.
  - `main/qagamei386.so` comes from my webserver. Is there a better source for
  this?
 
+### Build history
+```
+
+```
+
 
 
