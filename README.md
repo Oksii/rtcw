@@ -90,6 +90,7 @@ possible or create a custom `SETTINGSURL`.
 ```
 
 Version change: 1.3.1 || 133239597 || hash: 133239597
+Version change: 1.3.1 || 133239597 || hash: 133239597
 ```
 
 
