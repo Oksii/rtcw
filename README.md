@@ -89,6 +89,7 @@ possible or create a custom `SETTINGSURL`.
 ### Build history
 ```
 Version change: 1.3.1 || 133239597 || hash: 133239597
+Version change: 1.4 || 182085729 || hash: 182085729
 ```
 
 

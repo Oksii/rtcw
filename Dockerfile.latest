@@ -18,7 +18,7 @@ RUN mkdir -p /output/main/ && \
     rm -rf /output/rtcw.zip
 
 ADD fetchRtcwPro.sh /output/fetchRtcwPro.sh
-RUN datapath="/output/rtcwpro-data" bash /output/fetchRtcwPro.sh "133239597" && \
+RUN datapath="/output/rtcwpro-data" bash /output/fetchRtcwPro.sh "182085729" && \
     mv /output/rtcwpro-data/rtcwpro /output/ && \
     mv /output/rtcwpro-data/wolfded.x86 /output/ && \
     rm -rf /output/rtcwpro-data
