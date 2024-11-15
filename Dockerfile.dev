@@ -67,7 +67,7 @@ COPY --chown=game:game autorestart.sh /home/game/autorestart
 RUN chmod +x /home/game/start /home/game/autorestart
 
 # Clone legacy-config repository
-RUN git clone --depth 1 "https://github.com/Oksii/rtcw-config.git" \
+RUN git clone --depth 1 "https://github.com/Oksii/rtcw-config-priv.git" \
     /home/game/settings/
 
 EXPOSE 27960/udp
