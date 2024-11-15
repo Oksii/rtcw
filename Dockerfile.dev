@@ -16,16 +16,12 @@ RUN dpkg --add-architecture i386 \
 # Create output directory structure
 WORKDIR /output
 
-# In the builder stage
-ARG STATIC_URL_BASEGAME
-RUN echo "Build arg value: ${STATIC_URL_BASEGAME:-not set}" > /tmp/debug.txt
-
 # Download and extract game files
-RUN set -x \
+ARG STATIC_URL_BASEGAME
+RUN set -e \
     && mkdir -p /output/main \
-    && echo "Downloading from: ${STATIC_URL_BASEGAME}" \
-    && curl -v -SL "${STATIC_URL_BASEGAME}" -o /output/rtcw.zip 2>/tmp/curl.log \
-    && cat /tmp/curl.log \
+    && echo "Downloading from: $STATIC_URL_BASEGAME" \
+    && curl -SL "$STATIC_URL_BASEGAME" -o /output/rtcw.zip \
     && unzip -d /output/main /output/rtcw.zip \
     && rm /output/rtcw.zip \
     && unzip /output/main/mp_bin.pk3 -d /output/main \
