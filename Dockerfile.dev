@@ -9,9 +9,7 @@ RUN dpkg --add-architecture i386 \
         wget \
         unzip \
         curl \
-        jq \
         bbe \
-        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create output directory structure
@@ -48,9 +46,11 @@ RUN dpkg --add-architecture i386 \
         libc6-i386 \
         libc6:i386 \
         unzip \
+        jq \
         git \
         bbe \
         qstat \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN wget http://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
