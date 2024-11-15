@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -x
 
 # Base directories
 GAME_BASE="/home/game"
