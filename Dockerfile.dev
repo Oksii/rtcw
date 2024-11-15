@@ -11,6 +11,7 @@ RUN dpkg --add-architecture i386 \
         curl \
         jq \
         bbe \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create output directory structure
@@ -21,7 +22,7 @@ ARG STATIC_URL_BASEGAME
 RUN set -e \
     && mkdir -p /output/main \
     && echo "Downloading from: $STATIC_URL_BASEGAME" \
-    && curl -SL "$STATIC_URL_BASEGAME" -o /output/rtcw.zip \
+    && curl -v -SLk "$STATIC_URL_BASEGAME" -o /output/rtcw.zip \
     && unzip -d /output/main /output/rtcw.zip \
     && rm /output/rtcw.zip \
     && unzip /output/main/mp_bin.pk3 -d /output/main \
