@@ -53,7 +53,7 @@ RUN dpkg --add-architecture i386 \
         qstat \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
+RUN wget -L https://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
     mv icecon_linux_amd64 /bin/icecon && \
     chmod +x /bin/icecon
 
