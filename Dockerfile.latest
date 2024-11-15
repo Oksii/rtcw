@@ -18,19 +18,22 @@ WORKDIR /output
 
 # Download and extract game files
 ARG STATIC_URL_BASEGAME
-RUN mkdir -p main/ \
-    && curl -SL "$STATIC_URL_BASEGAME" -o rtcw.zip \
-    && unzip -d main rtcw.zip \
-    && rm rtcw.zip \
-    && unzip main/mp_bin.pk3 -d main \
-    && rm -rf main/*.dll
+RUN set -e \
+    && mkdir -p /output/main \
+    && echo "Downloading from: ${STATIC_URL_BASEGAME}" \
+    && curl -SL "${STATIC_URL_BASEGAME}" -o /output/rtcw.zip \
+    && unzip -d /output/main /output/rtcw.zip \
+    && rm /output/rtcw.zip \
+    && unzip /output/main/mp_bin.pk3 -d /output/main \
+    && rm -rf /output/main/*.dll
 
 # Setup RTCWPro
-COPY fetchRtcwPro.sh .
-RUN datapath="/output/rtcwpro-data" bash fetchRtcwPro.sh "182085729" \
-    && mv rtcwpro-data/rtcwpro . \
-    && mv rtcwpro-data/wolfded.x86 . \
-    && rm -rf rtcwpro-data
+COPY fetchRtcwPro.sh /output/
+RUN set -e \
+    && datapath="/output/rtcwpro-data" bash /output/fetchRtcwPro.sh "182085729" \
+    && mv /output/rtcwpro-data/rtcwpro /output/ \
+    && mv /output/rtcwpro-data/wolfded.x86 /output/ \
+    && rm -rf /output/rtcwpro-data
 
 # Runtime stage
 FROM debian:stable-slim
@@ -50,7 +53,8 @@ RUN dpkg --add-architecture i386 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install additional tools in a single layer
-RUN wget -qO /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \
+RUN set -e \
+    && wget -qO /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 \
     && echo "1fffde9f3c7944f063265e9a5e67ae4f $(sha256sum /usr/bin/jq | cut -d' ' -f1)" | md5sum -c \
     && chmod +x /usr/bin/jq \
     && wget -qO /bin/icecon https://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 \
@@ -69,11 +73,14 @@ COPY --chown=game:game --from=builder /output/ .
 COPY --chown=game:game entrypoint.sh ./start
 COPY --chown=game:game autorestart.sh ./autorestart
 
-RUN chmod +x start autorestart \
-    && if [ -n "${PAT_TOKEN}" ]; then \
-       git clone --depth 1 --single-branch "https://${PAT_TOKEN}@github.com/Oksii/rtcw-config-priv.git" settings/; \
+RUN chmod +x start autorestart
+
+# Clone legacy-config repository (make PAT_TOKEN optional)
+ARG PAT_TOKEN=""
+RUN if [ -n "${PAT_TOKEN}" ]; then \
+        git clone --depth 1 "https://${PAT_TOKEN}@github.com/Oksii/rtcw-config-priv.git" settings/; \
     else \
-       echo "Error: PAT_TOKEN not provided" && exit 1; \
+        git clone --depth 1 "https://github.com/Oksii/rtcw-config-priv.git" settings/; \
     fi \
     && rm -rf settings/.git
 

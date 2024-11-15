@@ -157,14 +157,24 @@ update_game_files() {
     mkdir -p "${GAME_BASE}/rtcwpro/configs/"
     cp "${SETTINGS_BASE}"/configs/*.config "${GAME_BASE}/rtcwpro/configs/"
     
-    # Update server.cfg
+    # Update server.cfg with environment variables
     cp "${SETTINGS_BASE}/server.cfg" "${GAME_BASE}/main/server.cfg"
+    
+    # Handle g_needpass separately since it's conditional
+    [[ -n "${CONFIG[PASSWORD]}" ]] && NEEDPASS='set g_needpass "1"' || NEEDPASS=""
+    sed -i "s/%CONF_NEEDPASS%/${NEEDPASS}/g" "${GAME_BASE}/main/server.cfg"
+    
+    # Replace all other CONF_ variables
     for var in "${!CONFIG[@]}"; do
-        local value="${CONFIG[$var]//\//\\/}"
+        # Escape any forward slashes in the value to prevent sed errors
+        value="${CONFIG[$var]//\//\\/}"
         sed -i "s/%CONF_${var}%/${value}/g" "${GAME_BASE}/main/server.cfg"
     done
+    
+    # Clean up any remaining unreplaced variables
     sed -i 's/%CONF_[A-Z]*%//g' "${GAME_BASE}/main/server.cfg"
     
+    # Append extra configuration if it exists
     [[ -f "${GAME_BASE}/extra.cfg" ]] && \
         cat "${GAME_BASE}/extra.cfg" >> "${GAME_BASE}/main/server.cfg"
 }
