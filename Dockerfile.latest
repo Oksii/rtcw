@@ -48,21 +48,21 @@ RUN dpkg --add-architecture i386 \
         libc6-i386 \
         libc6:i386 \
         unzip \
-        git \
         jq \
+        git \
         bbe \
         qstat \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install additional tools in a single layer
-RUN set -e \
-    && wget -qO /bin/icecon http://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 \
-    && chmod +x /bin/icecon \
-    && wget -qO libstdc++2.deb http://archive.debian.org/debian/pool/main/g/gcc-2.95/libstdc++2.10-glibc2.2_2.95.4-27_i386.deb \
-    && echo "fa8e4293fa233399a2db248625355a77 $(sha256sum libstdc++2.deb | cut -d' ' -f1)" | md5sum -c \
-    && dpkg -i libstdc++2.deb \
-    && rm libstdc++2.deb
+RUN wget http://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
+    mv icecon_linux_amd64 /bin/icecon && \
+    chmod +x /bin/icecon
+
+RUN wget http://archive.debian.org/debian/pool/main/g/gcc-2.95/libstdc++2.10-glibc2.2_2.95.4-27_i386.deb && \
+    md5sum libstdc++2.10-glibc2.2_2.95.4-27_i386.deb | cut -d' ' -f1 | grep fa8e4293fa233399a2db248625355a77 && \
+    dpkg -i libstdc++2.10-glibc2.2_2.95.4-27_i386.deb && \
+    rm -rf libstdc++2.10-glibc2.2_2.95.4-27_i386.deb
 
 # Setup game user and environment
 RUN useradd -ms /bin/bash game
