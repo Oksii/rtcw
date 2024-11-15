@@ -53,11 +53,6 @@ RUN dpkg --add-architecture i386 \
         qstat \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && \
-    md5sum jq-linux64 | cut -d' ' -f1 | grep 1fffde9f3c7944f063265e9a5e67ae4f && \
-    mv jq-linux64 /usr/bin/jq && \
-    chmod +x /usr/bin/jq
-
 RUN wget https://github.com/icedream/icecon/releases/download/v1.0.0/icecon_linux_amd64 && \
     mv icecon_linux_amd64 /bin/icecon && \
     chmod +x /bin/icecon
