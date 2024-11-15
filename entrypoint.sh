@@ -14,6 +14,7 @@ CONF_TIMEOUTLIMIT=${TIMEOUTLIMIT:-1}
 CONF_SERVERCONF=${SERVERCONF:-"comp"}
 CONF_SETTINGSGIT=${SETTINGSURL:-"https://github.com/Oksii/rtcw-config.git"}
 CONF_SETTINGSBRANCH=${SETTINGSBRANCH:-"master"}
+CONF_SETTINGSGITPAT=${SETTINGSPAT:-""}
 CONF_CHECKVERSION=${CONF_CHECKVERSION:-"17"}
 CONF_STATS_SUBMIT=${STATS_SUBMIT:-"0"}
 CONF_STATS_URL=${STATS_URL:-"https://rtcwproapi.donkanator.com/submit"}
@@ -26,7 +27,15 @@ SETTINGS_BASE="${GAME_BASE}/settings"
 # Update the configs git directory
 if [ "${AUTO_UPDATE}" == "true" ]; then
     echo "Checking if any configuration updates exist to pull"
-    if git clone --depth 1 --single-branch --branch "${CONF_SETTINGSBRANCH}" "${CONF_SETTINGSGIT}" "${SETTINGS_BASE}.new"; then
+
+    # If CONF_SETTINGSPAT is not empty, use it for authentication
+    if [ -n "${CONF_SETTINGSGITPAT}" ]; then
+        AUTH_URL="https://${CONF_SETTINGSGITPAT}@$(echo "${CONF_SETTINGSGIT}" | sed 's~https://~~g')"
+    else
+        AUTH_URL="${CONF_SETTINGSGIT}"
+    fi
+
+    if git clone --depth 1 --single-branch --branch "${CONF_SETTINGSBRANCH}" "${AUTH_URL}" "${SETTINGS_BASE}.new"; then
         rm -rf "${SETTINGS_BASE}"
         mv "${SETTINGS_BASE}.new" "${SETTINGS_BASE}"
     else
@@ -34,7 +43,6 @@ if [ "${AUTO_UPDATE}" == "true" ]; then
             "using latest pulled version"
     fi
 fi
-
 declare -A default_maps=(
     [mp_assault]="mp_pak0"
     [mp_base]="mp_pak0"
