@@ -192,9 +192,11 @@ download_xmas_files() {
 # Move .spawn files from the xmas/ folder to maps/ folder if XMAS is true
 move_xmas_spawn_files() {
     if [[ "${CONFIG[XMAS]}" == "true" ]]; then
-        echo "XMAS is true. Moving .spawn files from xmas/ to maps/..."
-        mkdir -p "${GAME_BASE}/rtcwpro/maps/"
-        mv "${GAME_BASE}/xmas/*.spawn" "${GAME_BASE}/rtcwpro/maps/"
+        echo "XMAS is true. Copying .spawn files from ${SETTINGS_BASE}/xmas/ to ${GAME_BASE}/rtcwpro/maps/..."
+
+        for spawnfile in "${SETTINGS_BASE}/xmas/"*.spawn; do
+            [[ -f "$spawnfile" ]] && cp "$spawnfile" "${GAME_BASE}/rtcwpro/maps/"
+        done
     fi
 }
 
