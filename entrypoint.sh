@@ -25,6 +25,8 @@ declare -A CONFIG=(
     [STATS_SUBMIT]="0"
     [STATS_URL]="https://rtcwproapi.donkanator.com/submit"
     [AUTO_UPDATE]="true"
+    [XMAS]="false"
+    [XMAS_FILE]="https://deployment-bucket.rtcw.eu/maps/rtcwpro/mp_gathermas.pk3"
 )
 
 # Load environment variables into config
@@ -179,11 +181,30 @@ update_game_files() {
         cat "${GAME_BASE}/extra.cfg" >> "${GAME_BASE}/main/server.cfg"
 }
 
+# Download the mp_gathermas.pk3 file if XMAS is true
+download_xmas_files() {
+    if [[ "${CONFIG[XMAS]}" == "true" ]]; then
+        echo "XMAS is true. Downloading mp_gathermas.pk3..."
+        wget -O "${GAME_BASE}/rtcwpro/mp_gathermas.pk3" "${CONFIG[XMAS_FILE]}"
+    fi
+}
+
+# Move .spawn files from the xmas/ folder to maps/ folder if XMAS is true
+move_xmas_spawn_files() {
+    if [[ "${CONFIG[XMAS]}" == "true" ]]; then
+        echo "XMAS is true. Moving .spawn files from xmas/ to maps/..."
+        mkdir -p "${GAME_BASE}/rtcwpro/maps/"
+        mv "${GAME_BASE}/xmas/*.spawn" "${GAME_BASE}/rtcwpro/maps/"
+    fi
+}
+
 # Main execution
 update_config
 process_maps
 process_default_maps
 update_game_files
+download_xmas_files
+move_xmas_spawn_files
 
 # Set up environment for game
 [[ "${NOQUERY:-}" == "true" ]] && export LD_PRELOAD="${GAME_BASE}/libnoquery.so"
