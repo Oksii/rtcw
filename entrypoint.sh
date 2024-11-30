@@ -27,6 +27,9 @@ declare -A CONFIG=(
     [AUTO_UPDATE]="true"
     [XMAS]="false"
     [XMAS_FILE]="http://rtcw.life/files/mapdb/mp_gathermas.pk3"
+    [CONF_SSADDRESS]=""
+    [CONF_SSWEBHOOKID]=""
+    [CONF_SSWEBHOOKTOKEN]=""
 )
 
 # Load environment variables into config
