@@ -26,7 +26,7 @@ declare -A CONFIG=(
     [STATS_URL]="https://rtcwproapi.donkanator.com/submit"
     [AUTO_UPDATE]="true"
     [XMAS]="false"
-    [XMAS_FILE]="https://deployment-bucket.rtcw.eu/maps/rtcwpro/mp_gathermas.pk3"
+    [XMAS_FILE]="http://rtcw.life/files/mapdb/mp_gathermas.pk3"
 )
 
 # Load environment variables into config
