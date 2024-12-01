@@ -14,8 +14,8 @@ declare -A CONFIG=(
     [MAXCLIENTS]="${MAXCLIENTS:-32}"
     [PASSWORD]="${PASSWORD:-}"
     [SCPASSWORD]="${SCPASSWORD:-}"
+    [REFPASSWORD]="${REFPASSWORD:-}"
     [RCONPASSWORD]="${RCONPASSWORD:-}"
-    [REFEREEPASSWORD]="${REFEREEPASSWORD:-}"
     [TIMEOUTLIMIT]="${TIMEOUTLIMIT:-1}"
     [REDIRECTURL]="${REDIRECTURL:-http://rtcw.life/files/mapdb}"
     [SETTINGSPAT]="${SETTINGSPAT:-}"
@@ -30,7 +30,7 @@ declare -A CONFIG=(
 )
 
 # Default maps with their packages (readonly for optimization)
-readonly declare -A DEFAULT_MAPS=(
+declare -A DEFAULT_MAPS=(
     [mp_assault]="mp_pak0" [mp_base]="mp_pak0" [mp_beach]="mp_pak0"
     [mp_castle]="mp_pak0" [mp_depot]="mp_pak0" [mp_destruction]="mp_pak0"
     [mp_sub]="mp_pak0" [mp_village]="mp_pak0" [mp_trenchtoast]="mp_pakmaps0"
@@ -39,7 +39,7 @@ readonly declare -A DEFAULT_MAPS=(
 )
 
 # Maps to skip global mutations (readonly for optimization)
-readonly declare -A SKIP_GLOBAL_MUTATIONS=(
+declare -A SKIP_GLOBAL_MUTATIONS=(
     [mp_beach]=1 [mp_castle]=1 [mp_depot]=1 [mp_destruction]=1
     [mp_sub]=1 [mp_village]=1 [mp_trenchtoast]=1 [mp_keep]=1
     [mp_chateau]=1 [mp_tram]=1 [mp_dam]=1 [mp_rocket]=1
