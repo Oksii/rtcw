@@ -33,35 +33,90 @@ declare -A CONFIG=(
 )
 
 # Maps configuration using a here-doc for better readability
-while IFS= read -r line; do
-    [[ -n "$line" ]] && eval "DEFAULT_MAPS+=([$line])"
+while IFS='=' read -r map_entry; do
+    [[ -n "$map_entry" ]] || continue
+    map_name=${map_entry%%=*}
+    pak_file=${map_entry#*=}
+    map_name=${map_name#*[}
+    map_name=${map_name%]*}
+    DEFAULT_MAPS[$map_name]=$pak_file
 done << 'EOF'
-    [mp_assault]=mp_pak0 [mp_base]=mp_pak0 [mp_beach]=mp_pak0
-    [mp_castle]=mp_pak0 [mp_depot]=mp_pak0 [mp_destruction]=mp_pak0
-    [mp_sub]=mp_pak0 [mp_village]=mp_pak0 [mp_trenchtoast]=mp_pakmaps0
-    [mp_ice]=mp_pakmaps1 [mp_keep]=mp_pakmaps2 [mp_chateau]=mp_pakmaps3
-    [mp_tram]=mp_pakmaps4 [mp_dam]=mp_pakmaps5 [mp_rocket]=mp_pakmaps6
+    [mp_assault]=mp_pak0
+    [mp_base]=mp_pak0
+    [mp_beach]=mp_pak0
+    [mp_castle]=mp_pak0
+    [mp_depot]=mp_pak0
+    [mp_destruction]=mp_pak0
+    [mp_sub]=mp_pak0
+    [mp_village]=mp_pak0
+    [mp_trenchtoast]=mp_pakmaps0
+    [mp_ice]=mp_pakmaps1
+    [mp_keep]=mp_pakmaps2
+    [mp_chateau]=mp_pakmaps3
+    [mp_tram]=mp_pakmaps4
+    [mp_dam]=mp_pakmaps5
+    [mp_rocket]=mp_pakmaps6
 EOF
 
 # Skip mutations configuration using a here-doc
-while IFS= read -r map; do
-    [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
+while read -r line; do
+    [[ -z "$line" ]] && continue
+    for map in $line; do
+        [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
+    done
 done << 'EOF'
-mp_beach mp_castle mp_depot mp_destruction mp_sub mp_village
-mp_trenchtoast mp_keep mp_chateau mp_tram mp_dam mp_rocket
-bd_bunker_b2 bp_badplace braundorf_b7 castle2_b3 frostafari_revamped_b3
-ge_tundra_b1 goldrush_b2 koth_base_a2 mp_basement mp_ctfmultidemo
-mp_password2_v1 mp_science mp_sub2_b1 oasis_b1 rocket2_b4 sub2_b8
-te_adlernest_b1 te_bremen_b1 te_chateau te_cipher_b5 te_delivery_b1
-te_escape2 te_kungfugrip te_nordic_b2 te_operation_b4 te_radar_b1
-timertest6 tram2 ufo_homiefix mp_ctfmultidemo_squid mp_sub_squid
+mp_beach
+mp_castle
+mp_depot
+mp_destruction
+mp_sub
+mp_village
+mp_trenchtoast
+mp_keep
+mp_chateau
+mp_tram
+mp_dam
+mp_rocket
+bd_bunker_b2
+bp_badplace
+braundorf_b7
+castle2_b3
+frostafari_revamped_b3
+ge_tundra_b1
+goldrush_b2
+koth_base_a2
+mp_basement
+mp_ctfmultidemo
+mp_password2_v1
+mp_science
+mp_sub2_b1
+oasis_b1
+rocket2_b4
+sub2_b8
+te_adlernest_b1
+te_bremen_b1
+te_chateau
+te_cipher_b5
+te_delivery_b1
+te_escape2
+te_kungfugrip
+te_nordic_b2
+te_operation_b4
+te_radar_b1
+timertest6
+tram2
+ufo_homiefix
+mp_ctfmultidemo_squid
+mp_sub_squid
 EOF
 
 # Check if a map needs any mutations
 needs_mutations() {
     local map=$1
+    # First check if this map should skip global mutations
+    [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && return 1
+    # Then check for map-specific or global mutations
     [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]] && return 0
-    [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -ne 1 ]] && 
     [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] && return 0
     return 1
 }
