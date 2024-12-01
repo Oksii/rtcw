@@ -84,11 +84,16 @@ parse_skip_list
 # Check if a map needs any mutations
 needs_mutations() {
     local map=$1
-    # First check if this map should skip global mutations
-    [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && return 1
-    # Then check for map-specific or global mutations
-    [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]] && return 0
-    [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] && return 0
+
+    if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
+        return 0
+    fi
+    
+    if [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -ne 1 ]] && 
+       [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]]; then
+        return 0
+    fi
+    
     return 1
 }
 
@@ -98,16 +103,18 @@ apply_mutations() {
     local temp_path="${map_path}.tmp"
     local mutations_applied=0
 
+    # Apply map-specific mutations if they exist
+    if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
+        bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"
+        mutations_applied=1
+    fi
+
+    # Apply global mutations only if the map isn't in the skip list
     if [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -ne 1 ]] && 
        [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] &&
        bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" &&
        [[ -f "${temp_path}" ]]; then
-        mutations_applied=1
         mv "${temp_path}" "${map_path}"
-    fi
-
-    if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
-        bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"
         mutations_applied=1
     fi
 
