@@ -5,7 +5,10 @@ set -x
 GAME_BASE="/home/game"
 SETTINGS_BASE="${GAME_BASE}/settings"
 
-# Config defaults with more robust initialization
+# Combine default maps and skip mutations into a single declaration pass
+declare -A CONFIG DEFAULT_MAPS SKIP_GLOBAL_MUTATIONS
+
+# Config defaults
 declare -A CONFIG=(
     [AUTO_UPDATE]="${AUTO_UPDATE:-true}"
     [CHECKVERSION]="${CHECKVERSION:-17}"
@@ -29,53 +32,52 @@ declare -A CONFIG=(
     [XMAS]="${XMAS:-false}"
 )
 
-# Default maps with their packages (readonly for optimization)
-declare -A DEFAULT_MAPS=(
-    [mp_assault]="mp_pak0" [mp_base]="mp_pak0" [mp_beach]="mp_pak0"
-    [mp_castle]="mp_pak0" [mp_depot]="mp_pak0" [mp_destruction]="mp_pak0"
-    [mp_sub]="mp_pak0" [mp_village]="mp_pak0" [mp_trenchtoast]="mp_pakmaps0"
-    [mp_ice]="mp_pakmaps1" [mp_keep]="mp_pakmaps2" [mp_chateau]="mp_pakmaps3"
-    [mp_tram]="mp_pakmaps4" [mp_dam]="mp_pakmaps5" [mp_rocket]="mp_pakmaps6"
-)
+# Maps configuration using a here-doc for better readability
+while IFS= read -r line; do
+    [[ -n "$line" ]] && eval "DEFAULT_MAPS+=([$line])"
+done << 'EOF'
+    [mp_assault]=mp_pak0 [mp_base]=mp_pak0 [mp_beach]=mp_pak0
+    [mp_castle]=mp_pak0 [mp_depot]=mp_pak0 [mp_destruction]=mp_pak0
+    [mp_sub]=mp_pak0 [mp_village]=mp_pak0 [mp_trenchtoast]=mp_pakmaps0
+    [mp_ice]=mp_pakmaps1 [mp_keep]=mp_pakmaps2 [mp_chateau]=mp_pakmaps3
+    [mp_tram]=mp_pakmaps4 [mp_dam]=mp_pakmaps5 [mp_rocket]=mp_pakmaps6
+EOF
 
-# Maps to skip global mutations (readonly for optimization)
-declare -A SKIP_GLOBAL_MUTATIONS=(
-    [mp_beach]=1 [mp_castle]=1 [mp_depot]=1 [mp_destruction]=1
-    [mp_sub]=1 [mp_village]=1 [mp_trenchtoast]=1 [mp_keep]=1
-    [mp_chateau]=1 [mp_tram]=1 [mp_dam]=1 [mp_rocket]=1
-    [bd_bunker_b2]=1 [bp_badplace]=1 [braundorf_b7]=1 [castle2_b3]=1
-    [frostafari_revamped_b3]=1 [ge_tundra_b1]=1 [goldrush_b2]=1
-    [koth_base_a2]=1 [mp_basement]=1 [mp_ctfmultidemo]=1 [mp_password2_v1]=1
-    [mp_science]=1 [mp_sub2_b1]=1 [oasis_b1]=1 [rocket2_b4]=1
-    [sub2_b8]=1 [te_adlernest_b1]=1 [te_bremen_b1]=1 [te_chateau]=1
-    [te_cipher_b5]=1 [te_delivery_b1]=1 [te_escape2]=1 [te_kungfugrip]=1
-    [te_nordic_b2]=1 [te_operation_b4]=1 [te_radar_b1]=1 [timertest6]=1
-    [tram2]=1 [ufo_homiefix]=1
-)
+# Skip mutations configuration using a here-doc
+while IFS= read -r map; do
+    [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
+done << 'EOF'
+mp_beach mp_castle mp_depot mp_destruction mp_sub mp_village
+mp_trenchtoast mp_keep mp_chateau mp_tram mp_dam mp_rocket
+bd_bunker_b2 bp_badplace braundorf_b7 castle2_b3 frostafari_revamped_b3
+ge_tundra_b1 goldrush_b2 koth_base_a2 mp_basement mp_ctfmultidemo
+mp_password2_v1 mp_science mp_sub2_b1 oasis_b1 rocket2_b4 sub2_b8
+te_adlernest_b1 te_bremen_b1 te_chateau te_cipher_b5 te_delivery_b1
+te_escape2 te_kungfugrip te_nordic_b2 te_operation_b4 te_radar_b1
+timertest6 tram2 ufo_homiefix mp_ctfmultidemo_squid mp_sub_squid
+EOF
 
 # Check if a map needs any mutations
 needs_mutations() {
     local map=$1
     [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]] && return 0
-    [[ ! ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && 
+    [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -ne 1 ]] && 
     [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] && return 0
     return 1
 }
 
 # Apply mutations to a map
 apply_mutations() {
-    local map=$1
-    local map_path=$2
+    local map=$1 map_path=$2
     local temp_path="${map_path}.tmp"
     local mutations_applied=0
 
-    if [[ ! ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && 
-       [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]]; then
-        if bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" &&
-           [[ -f "${temp_path}" ]]; then
-            mutations_applied=1
-            mv "${temp_path}" "${map_path}"
-        fi
+    if [[ ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -ne 1 ]] && 
+       [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] &&
+       bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" &&
+       [[ -f "${temp_path}" ]]; then
+        mutations_applied=1
+        mv "${temp_path}" "${map_path}"
     fi
 
     if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
@@ -91,10 +93,8 @@ apply_mutations() {
     return 1
 }
 
-# Process a single map
 process_map() {
-    local map=$1
-    local pk3_path=$2
+    local map=$1 pk3_path=$2
     local temp_dir="${GAME_BASE}/tmp"
 
     needs_mutations "${map}" || return 0
@@ -106,10 +106,8 @@ process_map() {
     rm -rf "${temp_dir}"
 }
 
-
-# Process custom maps
 process_custom_maps() {
-    local IFS=':'
+    local IFS=':' map
     read -ra maps_array <<< "${MAPS:-}"
     
     for map in "${maps_array[@]}"; do
@@ -126,7 +124,6 @@ process_custom_maps() {
     done
 }
 
-
 # Update configuration from git
 update_config() {
     [[ "${CONFIG[AUTO_UPDATE]}" != "true" ]] && return 0
@@ -142,10 +139,8 @@ update_config() {
     fi
 }
 
-
 # Update mapscripts and configs
 update_game_files() {
-    # Update mapscripts and configs
     rm -f "${GAME_BASE}"/rtcwpro/maps/*.{script,spawns}
     cp "${SETTINGS_BASE}"/mapscripts/*.{script,spawns} "${GAME_BASE}/rtcwpro/maps/" 2>/dev/null || true
     
@@ -156,11 +151,10 @@ update_game_files() {
     local server_cfg="${GAME_BASE}/main/server.cfg"
     cp "${SETTINGS_BASE}/server.cfg" "${server_cfg}"
     
-    # Process both CONFIG array and environment variables
+    # Process environment variables
+    local key value
     while IFS='=' read -r key value; do
-        if [[ $key == CONF_* ]]; then
-            sed -i "s|%${key}%|${value}|g" "$server_cfg"
-        fi
+        [[ $key == CONF_* ]] && sed -i "s|%${key}%|${value}|g" "$server_cfg"
     done < <(env | grep '^CONF_')
     
     # Process CONFIG array values
@@ -175,22 +169,21 @@ update_game_files() {
         sed -i 's/%CONF_NEEDPASS%//g' "$server_cfg"
     fi
     
-    # Clean up remaining unreplaced variables and append extra config
+    # Cleanup and append .extra cfg 
     sed -i 's/%CONF_[A-Z_]*%//g' "$server_cfg"
     [[ -f "${GAME_BASE}/extra.cfg" ]] && cat "${GAME_BASE}/extra.cfg" >> "$server_cfg"
 }
 
-# Improved CLI args parsing that preserves quotes
 parse_cli_args() {
     [[ -z "${ADDITIONAL_CLI_ARGS:-}" ]] && return
     eval "printf '%s\n' $ADDITIONAL_CLI_ARGS"
 }
 
-# Main execution
 main() {
     update_config
     process_custom_maps
 
+    local map
     for map in "${!DEFAULT_MAPS[@]}"; do
         process_map "${map}" "${GAME_BASE}/main/${DEFAULT_MAPS[$map]}.pk3"
     done
@@ -207,6 +200,7 @@ main() {
     [[ "${NOQUERY:-}" == "true" ]] && export LD_PRELOAD="${GAME_BASE}/libnoquery.so"
 
     # Launch server with preserved arguments
+    local -a additional_args
     read -ra additional_args < <(parse_cli_args)
     exec "${GAME_BASE}/wolfded.x86" \
         +set dedicated 2 \
