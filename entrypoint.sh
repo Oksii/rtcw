@@ -14,17 +14,18 @@ parse_skip_list() {
     if [[ ! -f "$global_sh" ]]; then
         echo "Warning: global.sh not found at $global_sh" >&2
         return 1
-    }
+    fi
 
     # Extract the array declaration and convert it to our associative array
-    local skip_maps
-    skip_maps=$(awk '/^default_maps_skip=\(/,/\)/ {print}' "$global_sh" | \
-                grep '"' | \
-                sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
-    
     while read -r map; do
         [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
-    done <<< "$skip_maps"
+    done < <(awk '/^default_maps_skip=\(/,/^\)/ {
+        if ($0 ~ /"[^"]+"/) {
+            gsub(/"/, "")
+            gsub(/^[[:space:]]+/, "")
+            print
+        }
+    }' "$global_sh")
 }
 
 # Config defaults
