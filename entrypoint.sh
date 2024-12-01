@@ -5,40 +5,32 @@ set -x
 GAME_BASE="/home/game"
 SETTINGS_BASE="${GAME_BASE}/settings"
 
-# Configuration with defaults
+# Config defaults with more robust initialization
 declare -A CONFIG=(
-    [REDIRECTURL]="http://rtcw.life/files/mapdb"
-    [MAP_PORT]="27960"
-    [STARTMAP]="mp_ice"
-    [HOSTNAME]="RTCW"
-    [MAXCLIENTS]="32"
-    [PASSWORD]=""
-    [RCONPASSWORD]=""
-    [REFEREEPASSWORD]=""
-    [SCPASSWORD]=""
-    [TIMEOUTLIMIT]="1"
-    [SERVERCONF]="comp"
-    [SETTINGSURL]="https://github.com/Oksii/rtcw-config-priv.git"
-    [SETTINGSBRANCH]="main"
-    [SETTINGSPAT]=""
-    [CONF_CHECKVERSION]="17"
-    [STATS_SUBMIT]="0"
-    [STATS_URL]="https://rtcwproapi.donkanator.com/submit"
-    [AUTO_UPDATE]="true"
-    [XMAS]="false"
-    [XMAS_FILE]="http://rtcw.life/files/mapdb/mp_gathermas.pk3"
-    [SSADDRESS]=""
-    [SSWEBHOOKID]=""
-    [SSWEBHOOKTOKEN]=""
+    [AUTO_UPDATE]="${AUTO_UPDATE:-true}"
+    [CHECKVERSION]="${CHECKVERSION:-17}"
+    [HOSTNAME]="${HOSTNAME:-RTCW}"
+    [SERVERCONF]="${SERVERCONF:-comp}"
+    [MAXCLIENTS]="${MAXCLIENTS:-32}"
+    [PASSWORD]="${PASSWORD:-}"
+    [SCPASSWORD]="${SCPASSWORD:-}"
+    [RCONPASSWORD]="${RCONPASSWORD:-}"
+    [REFEREEPASSWORD]="${REFEREEPASSWORD:-}"
+    [TIMEOUTLIMIT]="${TIMEOUTLIMIT:-1}"
+    [REDIRECTURL]="${REDIRECTURL:-http://rtcw.life/files/mapdb}"
+    [SETTINGSPAT]="${SETTINGSPAT:-}"
+    [SETTINGSBRANCH]="${SETTINGSBRANCH:-main}"
+    [SETTINGSURL]="${SETTINGSURL:-https://github.com/Oksii/rtcw-config-priv.git}"
+    [MAP_PORT]="${MAP_PORT:-27960}"
+    [STARTMAP]="${STARTMAP:-mp_ice}"
+    [STATS_SUBMIT]="${STATS_SUBMIT:-0}"
+    [STATS_URL]="${STATS_URL:-https://rtcwproapi.donkanator.com/submit}"
+    [XMAS_FILE]="${XMAS_FILE:-http://rtcw.life/files/mapdb/mp_gathermas.pk3}"
+    [XMAS]="${XMAS:-false}"
 )
 
-# Load environment variables into config
-for key in "${!CONFIG[@]}"; do
-    CONFIG[$key]=${!key:-${CONFIG[$key]}}
-done
-
-# Default maps and their packages
-declare -A default_maps=(
+# Default maps with their packages (readonly for optimization)
+readonly declare -A DEFAULT_MAPS=(
     [mp_assault]="mp_pak0" [mp_base]="mp_pak0" [mp_beach]="mp_pak0"
     [mp_castle]="mp_pak0" [mp_depot]="mp_pak0" [mp_destruction]="mp_pak0"
     [mp_sub]="mp_pak0" [mp_village]="mp_pak0" [mp_trenchtoast]="mp_pakmaps0"
@@ -46,191 +38,195 @@ declare -A default_maps=(
     [mp_tram]="mp_pakmaps4" [mp_dam]="mp_pakmaps5" [mp_rocket]="mp_pakmaps6"
 )
 
+# Maps to skip global mutations (readonly for optimization)
+readonly declare -A SKIP_GLOBAL_MUTATIONS=(
+    [mp_beach]=1 [mp_castle]=1 [mp_depot]=1 [mp_destruction]=1
+    [mp_sub]=1 [mp_village]=1 [mp_trenchtoast]=1 [mp_keep]=1
+    [mp_chateau]=1 [mp_tram]=1 [mp_dam]=1 [mp_rocket]=1
+    [bd_bunker_b2]=1 [bp_badplace]=1 [braundorf_b7]=1 [castle2_b3]=1
+    [frostafari_revamped_b3]=1 [ge_tundra_b1]=1 [goldrush_b2]=1
+    [koth_base_a2]=1 [mp_basement]=1 [mp_ctfmultidemo]=1 [mp_password2_v1]=1
+    [mp_science]=1 [mp_sub2_b1]=1 [oasis_b1]=1 [rocket2_b4]=1
+    [sub2_b8]=1 [te_adlernest_b1]=1 [te_bremen_b1]=1 [te_chateau]=1
+    [te_cipher_b5]=1 [te_delivery_b1]=1 [te_escape2]=1 [te_kungfugrip]=1
+    [te_nordic_b2]=1 [te_operation_b4]=1 [te_radar_b1]=1 [timertest6]=1
+    [tram2]=1 [ufo_homiefix]=1
+)
+
+# Check if a map needs any mutations
+needs_mutations() {
+    local map=$1
+    [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]] && return 0
+    [[ ! ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && 
+    [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] && return 0
+    return 1
+}
+
+# Apply mutations to a map
+apply_mutations() {
+    local map=$1
+    local map_path=$2
+    local temp_path="${map_path}.tmp"
+    local mutations_applied=0
+
+    if [[ ! ${SKIP_GLOBAL_MUTATIONS[$map]:-0} -eq 1 ]] && 
+       [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]]; then
+        if bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" &&
+           [[ -f "${temp_path}" ]]; then
+            mutations_applied=1
+            mv "${temp_path}" "${map_path}"
+        fi
+    fi
+
+    if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
+        bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"
+        mutations_applied=1
+    fi
+
+    if ((mutations_applied)); then
+        mkdir -p "${GAME_BASE}/rtcwpro/maps"
+        mv "${map_path}" "${GAME_BASE}/rtcwpro/maps/${map}.bsp"
+        return 0
+    fi
+    return 1
+}
+
+# Process a single map
+process_map() {
+    local map=$1
+    local pk3_path=$2
+    local temp_dir="${GAME_BASE}/tmp"
+
+    needs_mutations "${map}" || return 0
+
+    mkdir -p "${temp_dir}/maps"
+    if unzip -j "${pk3_path}" "maps/${map}.bsp" -d "${temp_dir}/maps/"; then
+        apply_mutations "${map}" "${temp_dir}/maps/${map}.bsp"
+    fi
+    rm -rf "${temp_dir}"
+}
+
+
+# Process custom maps
+process_custom_maps() {
+    local IFS=':'
+    read -ra maps_array <<< "${MAPS:-}"
+    
+    for map in "${maps_array[@]}"; do
+        [[ -z "$map" || -n "${DEFAULT_MAPS[$map]:-}" ]] && continue
+        
+        if [[ ! -f "${GAME_BASE}/main/${map}.pk3" ]]; then
+            if [[ -f "/maps/${map}.pk3" ]]; then
+                cp "/maps/${map}.pk3" "${GAME_BASE}/main/${map}.pk3"
+            else
+                wget -q -O "${GAME_BASE}/main/${map}.pk3" "${CONFIG[REDIRECTURL]}/${map}.pk3" || continue
+            fi
+        fi
+        process_map "${map}" "${GAME_BASE}/main/${map}.pk3"
+    done
+}
+
+
 # Update configuration from git
 update_config() {
     [[ "${CONFIG[AUTO_UPDATE]}" != "true" ]] && return 0
     
-    echo "Checking for configuration updates..."
     local auth_url="${CONFIG[SETTINGSURL]}"
-    [[ -n "${CONFIG[SETTINGSPAT]}" ]] && \
-        auth_url="https://${CONFIG[SETTINGSPAT]}@$(echo "${CONFIG[SETTINGSURL]}" | sed 's~https://~~g')"
+    [[ -n "${CONFIG[SETTINGSPAT]}" ]] && 
+        auth_url="https://${CONFIG[SETTINGSPAT]}@${CONFIG[SETTINGSURL]#https://}"
     
-    if git clone --depth 1 --single-branch --branch "${CONFIG[SETTINGSBRANCH]}" "${auth_url}" "${SETTINGS_BASE}.new"; then
+    if git clone --depth 1 --single-branch --branch "${CONFIG[SETTINGSBRANCH]}" \
+        "${auth_url}" "${SETTINGS_BASE}.new" 2>/dev/null; then
         rm -rf "${SETTINGS_BASE}"
         mv "${SETTINGS_BASE}.new" "${SETTINGS_BASE}"
-    else
-        echo "Warning: Configuration update failed, using existing version"
     fi
 }
 
-# Apply map mutations
-run_mutations() {
-    local map=$1
-    local map_mutated=0
-    local map_path="${GAME_BASE}/tmp/maps/${map}.bsp"
-    local temp_path="${map_path}.tmp"
-    
-    # Global mutations
-    if [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]]; then
-        bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}"
-        if [[ -f "${temp_path}" ]]; then
-            map_mutated=1
-            echo "Applied global mutations to ${map}"
-            mv "${temp_path}" "${map_path}"
-        fi
-    fi
-    
-    # Map-specific mutations
-    if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
-        echo "Applying specific mutations to ${map}"
-        bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"
-        map_mutated=1
-    fi
-    
-    if [[ ${map_mutated} -eq 1 ]]; then
-        mkdir -p "${GAME_BASE}/rtcwpro/maps"
-        mv "${map_path}" "${GAME_BASE}/rtcwpro/maps/${map}.bsp"
-    else
-        echo "No mutations applied to ${map}"
-    fi
-}
-
-# Process custom maps
-process_maps() {
-    IFS=':' read -ra MAPS_ARRAY <<< "${MAPS:-}"
-    for map in "${MAPS_ARRAY[@]}"; do
-        [[ -z "$map" ]] && continue
-        
-        # Skip default maps
-        if [[ -n "${default_maps[$map]:-}" ]]; then
-            echo "${map} is a default map so we will not attempt to download"
-            continue
-        fi
-        
-        # Download map if needed
-        if [[ ! -f "${GAME_BASE}/main/${map}.pk3" ]]; then
-            echo "Attempting to download ${map}"
-            if [[ -f "/maps/${map}.pk3" ]]; then
-                echo "Map ${map} is sourcable locally, copying into place"
-                cp "/maps/${map}.pk3" "${GAME_BASE}/main/${map}.pk3.tmp"
-            else
-                if ! wget -O "${GAME_BASE}/main/${map}.pk3.tmp" "${CONFIG[REDIRECTURL]}/${map}.pk3"; then
-                    echo "Failed to download ${map}, skipping mutations"
-                    continue
-                fi
-            fi
-            mv "${GAME_BASE}/main/${map}.pk3.tmp" "${GAME_BASE}/main/${map}.pk3"
-        fi
-        
-        # Process map mutations
-        rm -rf "${GAME_BASE}/rtcwpro/maps/${map}.bsp"
-        mkdir -p "${GAME_BASE}/tmp/"
-        if ! unzip "${GAME_BASE}/main/${map}.pk3" -d "${GAME_BASE}/tmp/"; then
-            echo "Failed to extract ${map}, skipping mutations"
-            rm -rf "${GAME_BASE}/tmp/"
-            continue
-        fi
-        
-        run_mutations "${map}"
-        rm -rf "${GAME_BASE}/tmp/"
-    done
-}
-
-
-# Process default maps
-process_default_maps() {
-    for map in "${!default_maps[@]}"; do
-        rm -rf "${GAME_BASE}/rtcwpro/maps/${map}.bsp"
-        echo "Processing default map ${map}"
-        mkdir -p "${GAME_BASE}/tmp/maps/"
-        unzip -j "main/${default_maps[$map]}.pk3" -d "${GAME_BASE}/tmp/maps/" "maps/${map}.bsp"
-        run_mutations "${map}"
-        rm -rf "${GAME_BASE}/tmp/"
-    done
-}
 
 # Update mapscripts and configs
 update_game_files() {
-    # Clean and update mapscripts
+    # Update mapscripts and configs
     rm -f "${GAME_BASE}"/rtcwpro/maps/*.{script,spawns}
-    for mapscript in "${SETTINGS_BASE}"/mapscripts/*.{script,spawns}; do
-        [[ -f "${mapscript}" ]] && cp "${mapscript}" "${GAME_BASE}/rtcwpro/maps/"
-    done
+    cp "${SETTINGS_BASE}"/mapscripts/*.{script,spawns} "${GAME_BASE}/rtcwpro/maps/" 2>/dev/null || true
     
-    # Update configs
     rm -rf "${GAME_BASE}/rtcwpro/configs/"
     mkdir -p "${GAME_BASE}/rtcwpro/configs/"
     cp "${SETTINGS_BASE}"/configs/*.config "${GAME_BASE}/rtcwpro/configs/"
     
-    # Update server.cfg with environment variables
-    cp "${SETTINGS_BASE}/server.cfg" "${GAME_BASE}/main/server.cfg"
+    local server_cfg="${GAME_BASE}/main/server.cfg"
+    cp "${SETTINGS_BASE}/server.cfg" "${server_cfg}"
     
-    # Handle g_needpass separately since it's conditional
-    [[ -n "${CONFIG[PASSWORD]}" ]] && NEEDPASS='set g_needpass "1"' || NEEDPASS=""
-    sed -i "s/%CONF_NEEDPASS%/${NEEDPASS}/g" "${GAME_BASE}/main/server.cfg"
+    # Process both CONFIG array and environment variables
+    while IFS='=' read -r key value; do
+        if [[ $key == CONF_* ]]; then
+            sed -i "s|%${key}%|${value}|g" "$server_cfg"
+        fi
+    done < <(env | grep '^CONF_')
     
-    # Replace all other CONF_ variables
-    for var in "${!CONFIG[@]}"; do
-        # Escape any forward slashes in the value to prevent sed errors
-        value="${CONFIG[$var]//\//\\/}"
-        sed -i "s/%CONF_${var}%/${value}/g" "${GAME_BASE}/main/server.cfg"
+    # Process CONFIG array values
+    for key in "${!CONFIG[@]}"; do
+        sed -i "s|%CONF_${key}%|${CONFIG[$key]}|g" "$server_cfg"
     done
     
-    # Clean up any remaining unreplaced variables
-    sed -i 's/%CONF_[A-Z]*%//g' "${GAME_BASE}/main/server.cfg"
+    # Handle g_needpass
+    if [[ -n "${CONFIG[PASSWORD]}" ]]; then
+        sed -i 's/%CONF_NEEDPASS%/set g_needpass "1"/g' "$server_cfg"
+    else
+        sed -i 's/%CONF_NEEDPASS%//g' "$server_cfg"
+    fi
     
-    # Append extra configuration if it exists
-    [[ -f "${GAME_BASE}/extra.cfg" ]] && \
-        cat "${GAME_BASE}/extra.cfg" >> "${GAME_BASE}/main/server.cfg"
+    # Clean up remaining unreplaced variables and append extra config
+    sed -i 's/%CONF_[A-Z_]*%//g' "$server_cfg"
+    [[ -f "${GAME_BASE}/extra.cfg" ]] && cat "${GAME_BASE}/extra.cfg" >> "$server_cfg"
 }
 
-# Download the mp_gathermas.pk3 file if XMAS is true
-download_xmas_files() {
-    if [[ "${CONFIG[XMAS]}" == "true" ]]; then
-        echo "XMAS is true. Downloading mp_gathermas.pk3..."
-        wget -O "${GAME_BASE}/rtcwpro/mp_gathermas.pk3" "${CONFIG[XMAS_FILE]}"
-    fi
-}
-
-# Move .spawn files from the xmas/ folder to maps/ folder if XMAS is true
-move_xmas_spawn_files() {
-    if [[ "${CONFIG[XMAS]}" == "true" ]]; then
-        echo "XMAS is true. Copying .spawn files from ${SETTINGS_BASE}/xmas/ to ${GAME_BASE}/rtcwpro/maps/..."
-
-        for xmasscript in "${SETTINGS_BASE}"/xmas/*.{script,spawns}; do
-            [[ -f "${xmasscript}" ]] && cp "${xmasscript}" "${GAME_BASE}/rtcwpro/maps/"
-        done
-    fi
+# Improved CLI args parsing that preserves quotes
+parse_cli_args() {
+    [[ -z "${ADDITIONAL_CLI_ARGS:-}" ]] && return
+    eval "printf '%s\n' $ADDITIONAL_CLI_ARGS"
 }
 
 # Main execution
-update_config
-process_maps
-process_default_maps
-update_game_files
-download_xmas_files
-move_xmas_spawn_files
+main() {
+    update_config
+    process_custom_maps
 
-# Set up environment for game
-[[ "${NOQUERY:-}" == "true" ]] && export LD_PRELOAD="${GAME_BASE}/libnoquery.so"
-[[ -n "${CONFIG[PASSWORD]}" ]] && NEEDPASS='set g_needpass "1"'
+    for map in "${!DEFAULT_MAPS[@]}"; do
+        process_map "${map}" "${GAME_BASE}/main/${DEFAULT_MAPS[$map]}.pk3"
+    done
 
-# Launch the game server
-exec "${GAME_BASE}/wolfded.x86" \
-    +set dedicated 2 \
-    +set fs_game "rtcwpro" \
-    +set com_hunkmegs 512 \
-    +set vm_game 0 \
-    +set ttycon 0 \
-    +set net_ip 0.0.0.0 \
-    +set net_port "${CONFIG[MAP_PORT]}" \
-    +set sv_maxclients "${CONFIG[MAXCLIENTS]}" \
-    +set fs_basepath "${GAME_BASE}" \
-    +set fs_homepath "${GAME_BASE}" \
-    +set sv_GameConfig "${CONFIG[SERVERCONF]}" \
-    +set sv_authenabled 0 \
-    +set sv_AuthStrictMode 0 \
-    +set sv_checkversion "${CONFIG[CONF_CHECKVERSION]}" \
-    +exec "server.cfg" \
-    +map "${CONFIG[STARTMAP]}" \
-    "${@}"
+    update_game_files
+
+    # Handle XMAS content
+    if [[ "${CONFIG[XMAS]}" == "true" ]]; then
+        wget -q -O "${GAME_BASE}/rtcwpro/mp_gathermas.pk3" "${CONFIG[XMAS_FILE]}"
+        cp "${SETTINGS_BASE}"/xmas/*.{script,spawns} "${GAME_BASE}/rtcwpro/maps/" 2>/dev/null || true
+    fi
+
+    # Set up environment
+    [[ "${NOQUERY:-}" == "true" ]] && export LD_PRELOAD="${GAME_BASE}/libnoquery.so"
+
+    # Launch server with preserved arguments
+    read -ra additional_args < <(parse_cli_args)
+    exec "${GAME_BASE}/wolfded.x86" \
+        +set dedicated 2 \
+        +set fs_game "rtcwpro" \
+        +set com_hunkmegs 512 \
+        +set vm_game 0 \
+        +set ttycon 0 \
+        +set net_ip 0.0.0.0 \
+        +set net_port "${CONFIG[MAP_PORT]}" \
+        +set sv_maxclients "${CONFIG[MAXCLIENTS]}" \
+        +set fs_basepath "${GAME_BASE}" \
+        +set fs_homepath "${GAME_BASE}" \
+        +set sv_GameConfig "${CONFIG[SERVERCONF]}" \
+        +set sv_authenabled 0 \
+        +set sv_AuthStrictMode 0 \
+        +set sv_checkversion "${CONFIG[CHECKVERSION]}" \
+        +exec "server.cfg" \
+        +map "${CONFIG[STARTMAP]}" \
+        "${additional_args[@]}" \
+        "$@"
+}
+
+main "$@"
