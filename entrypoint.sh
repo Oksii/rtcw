@@ -5,10 +5,10 @@ set -x
 GAME_BASE="/home/game"
 SETTINGS_BASE="${GAME_BASE}/settings"
 
-# Combine default maps and skip mutations into a single declaration pass
+# Declare default maps and maps to be skipped from processing
 declare -A CONFIG DEFAULT_MAPS SKIP_GLOBAL_MUTATIONS
 
-# Function to parse skip list from global.sh
+# parse skip list from global.sh
 parse_skip_list() {
     local global_sh="${SETTINGS_BASE}/map-mutations/global.sh"
     if [[ ! -f "$global_sh" ]]; then
@@ -16,7 +16,7 @@ parse_skip_list() {
         return 1
     fi
 
-    # Extract the array declaration and convert it to our associative array
+    # Extract array and convert it to our associative array
     while read -r map; do
         [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
     done < <(awk '/^default_maps_skip=\(/,/^\)/ {
@@ -207,9 +207,17 @@ update_game_files() {
     [[ -f "${GAME_BASE}/extra.cfg" ]] && cat "${GAME_BASE}/extra.cfg" >> "$server_cfg"
 }
 
+# Parse additional CLI arguments
 parse_cli_args() {
-    [[ -z "${ADDITIONAL_CLI_ARGS:-}" ]] && return
-    eval "printf '%s\n' $ADDITIONAL_CLI_ARGS"
+    local args=()
+    local IFS=$' \t\n'
+    
+    # If ADDITIONAL_CLI_ARGS is empty, return empty array
+    [ -z "${ADDITIONAL_CLI_ARGS:-}" ] && echo "${args[@]}" && return
+
+    # Read the string into an array maintaining quotes
+    eval "args=($ADDITIONAL_CLI_ARGS)"
+    echo "${args[@]}"
 }
 
 main() {
@@ -229,12 +237,8 @@ main() {
         cp "${SETTINGS_BASE}"/xmas/*.{script,spawns} "${GAME_BASE}/rtcwpro/maps/" 2>/dev/null || true
     fi
 
-    # Set up environment
-    [[ "${NOQUERY:-}" == "true" ]] && export LD_PRELOAD="${GAME_BASE}/libnoquery.so"
-
     # Launch server with preserved arguments
-    local -a additional_args
-    read -ra additional_args < <(parse_cli_args)
+    ADDITIONAL_ARGS=($(parse_cli_args))
     exec "${GAME_BASE}/wolfded.x86" \
         +set dedicated 2 \
         +set fs_game "rtcwpro" \
@@ -252,7 +256,7 @@ main() {
         +set sv_checkversion "${CONFIG[CHECKVERSION]}" \
         +exec "server.cfg" \
         +map "${CONFIG[STARTMAP]}" \
-        "${additional_args[@]}" \
+        "${ADDITIONAL_ARGS[@]}" \
         "$@"
 }
 
