@@ -8,6 +8,25 @@ SETTINGS_BASE="${GAME_BASE}/settings"
 # Combine default maps and skip mutations into a single declaration pass
 declare -A CONFIG DEFAULT_MAPS SKIP_GLOBAL_MUTATIONS
 
+# Function to parse skip list from global.sh
+parse_skip_list() {
+    local global_sh="${SETTINGS_BASE}/map-mutations/global.sh"
+    if [[ ! -f "$global_sh" ]]; then
+        echo "Warning: global.sh not found at $global_sh" >&2
+        return 1
+    }
+
+    # Extract the array declaration and convert it to our associative array
+    local skip_maps
+    skip_maps=$(awk '/^default_maps_skip=\(/,/\)/ {print}' "$global_sh" | \
+                grep '"' | \
+                sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+    
+    while read -r map; do
+        [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
+    done <<< "$skip_maps"
+}
+
 # Config defaults
 declare -A CONFIG=(
     [AUTO_UPDATE]="${AUTO_UPDATE:-true}"
@@ -58,57 +77,8 @@ done << 'EOF'
     [mp_rocket]=mp_pakmaps6
 EOF
 
-# Skip mutations configuration using a here-doc
-while read -r line; do
-    [[ -z "$line" ]] && continue
-    for map in $line; do
-        [[ -n "$map" ]] && SKIP_GLOBAL_MUTATIONS["$map"]=1
-    done
-done << 'EOF'
-mp_beach
-mp_castle
-mp_depot
-mp_destruction
-mp_sub
-mp_village
-mp_trenchtoast
-mp_keep
-mp_chateau
-mp_tram
-mp_dam
-mp_rocket
-bd_bunker_b2
-bp_badplace
-braundorf_b7
-castle2_b3
-frostafari_revamped_b3
-ge_tundra_b1
-goldrush_b2
-koth_base_a2
-mp_basement
-mp_ctfmultidemo
-mp_password2_v1
-mp_science
-mp_sub2_b1
-oasis_b1
-rocket2_b4
-sub2_b8
-te_adlernest_b1
-te_bremen_b1
-te_chateau
-te_cipher_b5
-te_delivery_b1
-te_escape2
-te_kungfugrip
-te_nordic_b2
-te_operation_b4
-te_radar_b1
-timertest6
-tram2
-ufo_homiefix
-mp_ctfmultidemo_squid
-mp_sub_squid
-EOF
+# Initialize SKIP_GLOBAL_MUTATIONS from global.sh
+parse_skip_list
 
 # Check if a map needs any mutations
 needs_mutations() {
