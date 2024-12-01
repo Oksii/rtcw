@@ -6,6 +6,10 @@ Minor additions/adjustments to be more consistent with our orchestration needs.
  * removed support for PB and vanilla server
  * Allow for .spawns files in mapscript folder
  * Version control via discord bot
+ * Allow providing additional launch time args
+ * XMAS pack toggling
+ * Prepare a list of maps that need processing first by blacklisting skipped maps found in global.sh rather than unzipping every map and throwing it against it. Saves an incredible amount of time booting. 
+ * Allow dynamic loading of any CONF_ env var and check against server.cfg 
 
 # RTCW Match Server
 
@@ -42,7 +46,6 @@ docker run -d \
   msh100/rtcw
 ```
 
-
 ## Configuration Options
 
 
@@ -57,6 +60,10 @@ MAXCLIENTS           | Maximum number of players      | 32
 AUTO_UPDATE          | Update configurations on restart? | Enabled, set to `false` to enable.
 SETTINGSURL          | The git URL (must be HTTP public) for the RTCW settings repository. | https://github.com/Oksii/rtcw-config.git
 SETTINGSBRANCH       | The git branch for the RTCW settings repository. | `master`
+SETTINGSPAT          | The git PAT for private repositories. | None. 
+ADDITIONAL_ARG_CLI   | Set additional launch time args to be executed. | None, ie: +set sv_test 1
+XMAS                 | Toggles loading `mp_gathermas.pk3` on and off | Disabled, set to `true` to enable. 
+XMAS_FILE            | Sets URL to retrieve `mp_gathermas.pk3` from | http://rtcw.life/files/mapdb/mp_gathermas.pk3
 
 
 ### Configuration parameters for the default `SETTINGSURL`
@@ -65,7 +72,7 @@ Environment Variable | Description                    | Defaults
 -------------------- | ------------------------------ | ------------------------
 PASSWORD             | Server password.               | No password.
 RCONPASSWORD         | RCON password.                 | No password (disabled).
-REFEREEPASSWORD      | Referee password.              | No password (disabled).
+REFPASSWORD          | Referee password.              | No password (disabled).
 SCPASSWORD           | Shoutcaster password.          | No password (disabled).
 HOSTNAME             | Server hostname.               | RTCW
 CONF_MOTD            | MOTD line on connect           | Empty.
@@ -81,16 +88,8 @@ This is generally not recommended, try to use the variables above where
 possible or create a custom `SETTINGSURL`.
 
 
-## Todo
-
- - `main/qagamei386.so` comes from my webserver. Is there a better source for
- this?
-
 ### Build history
 ```
 Version change: 1.3.1 || 133239597 || hash: 133239597
-Version change: 1.4 || 182085729 || hash: 182085729
+Version change: 1.4   || 182085729 || hash: 182085729
 ```
-
-
-
