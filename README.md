@@ -93,4 +93,5 @@ possible or create a custom `SETTINGSURL`.
 Version change: 1.3.1 || 133239597 || hash: 133239597
 Version change: 1.4   || 182085729 || hash: 182085729
 Version change: 1.4.0.3 || 190781702 || hash: 190781702
+Version change: 1.4.0.3 || 190781702 || hash: 190781702
 ```
