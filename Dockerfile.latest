@@ -80,9 +80,9 @@ RUN chmod +x /home/game/start /home/game/autorestart
 # Clone legacy-config repository (make PAT_TOKEN optional)
 ARG PAT_TOKEN=""
 RUN if [ -n "${PAT_TOKEN}" ]; then \
-        git clone --depth 1 "https://${PAT_TOKEN}@github.com/Oksii/rtcw-config-priv.git" settings/; \
+        git clone --depth 1 "https://${PAT_TOKEN}@github.com/Oksii/rtcw-config.git" settings/; \
     else \
-        git clone --depth 1 "https://github.com/Oksii/rtcw-config-priv.git" settings/; \
+        git clone --depth 1 "https://github.com/Oksii/rtcw-config.git" settings/; \
     fi \
     && rm -rf settings/.git
 
