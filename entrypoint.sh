@@ -3,7 +3,6 @@ set -euo pipefail
 
 readonly GAME_BASE="/home/game"
 readonly SETTINGS_BASE="${GAME_BASE}/settings"
-readonly TEMP_DIR="${GAME_BASE}/tmp"
 
 declare -A CONFIG=(
     [AUTO_UPDATE]="${AUTO_UPDATE:-true}"
@@ -129,14 +128,15 @@ apply_mutations() {
 
 process_map() {
     local map="$1" pk3_path="$2"
+    local temp_dir="${GAME_BASE}/tmp"
 
     needs_mutations "${map}" || return 0
 
-    local temp_dir="${TEMP_DIR}"
     mkdir -p "${temp_dir}/maps"
-    
-    if unzip -j "${pk3_path}" "maps/${map}.bsp" -d "${temp_dir}/maps/"; then
+    if unzip -j "${pk3_path}" "maps/${map}.bsp" -d "${temp_dir}/maps/" 2>/dev/null; then
         apply_mutations "${map}" "${temp_dir}/maps/${map}.bsp"
+    else
+        log_error "Failed to extract ${map}.bsp from ${pk3_path}"
     fi
     rm -rf "${temp_dir}"
 }
@@ -191,13 +191,19 @@ process_maps() {
         for map in "${custom_maps[@]}"; do
             [[ -z "$map" || -n "${DEFAULT_MAPS[$map]:-}" ]] && continue
             local map_file="${GAME_BASE}/main/${map}.pk3"
-            [[ -f "$map_file" ]] && process_map "$map" "$map_file"
+            if [[ -f "$map_file" ]]; then
+                log "Processing custom map: $map"
+                process_map "$map" "$map_file"
+            fi
         done
     fi
     
     for map in "${!DEFAULT_MAPS[@]}"; do
         local pk3_file="${GAME_BASE}/main/${DEFAULT_MAPS[$map]}.pk3"
-        [[ -f "$pk3_file" ]] && process_map "$map" "$pk3_file"
+        if [[ -f "$pk3_file" ]]; then
+            log "Processing default map: $map"
+            process_map "$map" "$pk3_file"
+        fi
     done
 }
 
@@ -222,14 +228,17 @@ update_game_files() {
     if [[ -f "${SETTINGS_BASE}/server.cfg" ]]; then
         cp "${SETTINGS_BASE}/server.cfg" "$server_cfg"
         
+        # Replace environment variables
         while IFS='=' read -r key value; do
             [[ $key == CONF_* ]] && sed -i "s|%${key}%|${value}|g" "$server_cfg"
         done < <(env | grep '^CONF_' || true)
         
+        # Replace CONFIG values
         for key in "${!CONFIG[@]}"; do
             sed -i "s|%CONF_${key}%|${CONFIG[$key]}|g" "$server_cfg"
         done
         
+        # Handle password setting
         if [[ -n "${CONFIG[PASSWORD]}" ]]; then
             sed -i 's/%CONF_NEEDPASS%/set g_needpass "1"/g' "$server_cfg"
         else
@@ -250,6 +259,7 @@ setup_xmas_content() {
     [[ "${CONFIG[XMAS]}" != "true" ]] && return 0
     
     log "Setting up XMAS content"
+    
     curl --retry 3 --retry-delay 1 -fsL "${CONFIG[XMAS_FILE]}" \
         -o "${GAME_BASE}/rtcwpro/mp_gathermas.pk3" &
     
@@ -281,10 +291,11 @@ main() {
     log "Launching RTCW server"
     log "Port: ${CONFIG[MAP_PORT]}, Max clients: ${CONFIG[MAXCLIENTS]}, Start map: ${CONFIG[STARTMAP]}"
     
+    # Launch server
     exec "${GAME_BASE}/wolfded.x86" \
         +set dedicated 2 \
         +set fs_game "rtcwpro" \
-        +set com_hunkmegs 256 \
+        +set com_hunkmegs 512 \
         +set vm_game 0 \
         +set ttycon 0 \
         +set net_ip 0.0.0.0 \
