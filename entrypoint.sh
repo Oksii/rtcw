@@ -1,4 +1,6 @@
 #!/bin/bash
+# Redirect debug output to /dev/null during setup
+exec 2>/tmp/debug.log
 set -x
 
 readonly GAME_BASE="/home/game"
@@ -47,8 +49,13 @@ declare -A DEFAULT_MAPS=(
     [mp_rocket]=mp_pakmaps6
 )
 
-log() { echo "[$(date '+%H:%M:%S')] $*"; }
-log_error() { echo "[$(date '+%H:%M:%S')] ERROR: $*" >&2; }
+log() { 
+    echo "[$(date '+%H:%M:%S')] $*" >&1
+}
+
+log_error() { 
+    echo "[$(date '+%H:%M:%S')] ERROR: $*" >&1
+}
 
 update_config() {
     [[ "${CONFIG[AUTO_UPDATE]}" != "true" ]] && return 0
@@ -104,18 +111,24 @@ apply_mutations() {
     local mutations_applied=0
 
     if [[ -f "${SETTINGS_BASE}/map-mutations/${map}.sh" ]]; then
-        bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"
-        mutations_applied=1
+        if bash "${SETTINGS_BASE}/map-mutations/${map}.sh" "${map_path}"; then
+            mutations_applied=1
+        else
+            log_error "Map-specific mutations failed for $map, continuing..."
+        fi
     fi
 
     local skip_list
     skip_list=$(get_skip_list)
-    if ! echo "$skip_list" | grep -q "^${map}$" && 
-       [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]] &&
-       bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" &&
-       [[ -f "${temp_path}" ]]; then
-        mv "${temp_path}" "${map_path}"
-        mutations_applied=1
+    if ! echo "$skip_list" | grep -q "^${map}$" && [[ -f "${SETTINGS_BASE}/map-mutations/global.sh" ]]; then
+        if bash "${SETTINGS_BASE}/map-mutations/global.sh" "${map_path}" "${temp_path}" 2>/dev/null; then
+            if [[ -f "${temp_path}" ]]; then
+                mv "${temp_path}" "${map_path}"
+                mutations_applied=1
+            fi
+        else
+            rm -f "${temp_path}" 2>/dev/null || true
+        fi
     fi
 
     if ((mutations_applied)); then
@@ -291,11 +304,15 @@ main() {
     log "Launching RTCW server"
     log "Port: ${CONFIG[MAP_PORT]}, Max clients: ${CONFIG[MAXCLIENTS]}, Start map: ${CONFIG[STARTMAP]}"
     
+    # Clean up debug log and restore stderr for server
+    rm -f /tmp/debug.log
+    exec 2>&1
+    
     # Launch server
     exec "${GAME_BASE}/wolfded.x86" \
         +set dedicated 2 \
         +set fs_game "rtcwpro" \
-        +set com_hunkmegs 512 \
+        +set com_hunkmegs 256 \
         +set vm_game 0 \
         +set ttycon 0 \
         +set net_ip 0.0.0.0 \
