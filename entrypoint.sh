@@ -180,20 +180,26 @@ download_custom_maps() {
             log_error "Failed to download $map"
         fi
     done
+    
+    # Copy local BSP files
+    if [[ -d "/maps/bsp" ]]; then
+        log "Copying local BSP files"
+        mkdir -p "${GAME_BASE}/rtcwpro/maps"
+        for bsp_file in /maps/bsp/*.bsp; do
+            if [[ -f "$bsp_file" ]]; then
+                local bsp_name=$(basename "$bsp_file")
+                log "Copying BSP: $bsp_name"
+                cp "$bsp_file" "${GAME_BASE}/rtcwpro/maps/"
+            fi
+        done
+    fi
 }
 
 process_maps() {
     log "Processing maps (SKIP_MAP_PROCESSING=${CONFIG[SKIP_MAP_PROCESSING]})"
     
     if [[ "${CONFIG[SKIP_MAP_PROCESSING]}" == "true" ]]; then
-        log "Optimized mode: Processing only mp_ice with mp_ice.sh"
-        
-        if [[ -f "${SETTINGS_BASE}/map-mutations/mp_ice.sh" && -f "${GAME_BASE}/main/${DEFAULT_MAPS[mp_ice]}.pk3" ]]; then
-            process_map "mp_ice" "${GAME_BASE}/main/${DEFAULT_MAPS[mp_ice]}.pk3"
-            log "mp_ice processed with specific mutations only"
-        else
-            log "mp_ice.sh or pak file not found, skipping processing"
-        fi
+        log "Map processing skipped - no mutations will be applied"
         return
     fi
     
