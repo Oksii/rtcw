@@ -1,14 +1,74 @@
-name: Docker
+name: Docker Build and Release Detection
+
 on:
+  schedule:
+    # Check for new releases every 6 hours
+    - cron: '0 */6 * * *'
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if release exists'
+        required: false
+        default: 'false'
+        type: boolean
+
 jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      release_id: ${{ steps.check.outputs.release_id }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+    steps:
+      - name: Check for new RTCWPro release
+        id: check
+        run: |
+          # Get latest release info
+          latest_release=$(curl -fsL "https://api.github.com/repos/rtcwmp-com/rtcwPro/releases/latest")
+          latest_id=$(echo "$latest_release" | jq -r '.id')
+          latest_tag=$(echo "$latest_release" | jq -r '.tag_name')
+          
+          # Check if we already have this release built
+          existing_tags=$(curl -fsL "https://registry.hub.docker.com/v2/repositories/rtcwdocker/rtcw/tags/" | jq -r '.results[].name' 2>/dev/null || echo "")
+          
+          should_build="false"
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force_build }}" == "true" ]]; then
+              should_build="true"
+              echo "Build forced by manual trigger"
+            elif [[ "${{ github.event_name }}" == "push" ]]; then
+              should_build="true"
+              echo "Build triggered by push"
+            elif ! echo "$existing_tags" | grep -q "^${latest_id}$"; then
+              should_build="true"
+              echo "Build triggered manually - new release: $latest_tag (ID: $latest_id)"
+            else
+              echo "Manual trigger - release $latest_tag already exists, use force_build to rebuild"
+            fi
+          elif ! echo "$existing_tags" | grep -q "^${latest_id}$"; then
+            should_build="true"
+            echo "New release detected: $latest_tag (ID: $latest_id)"
+          else
+            echo "Release $latest_tag already built"
+          fi
+          
+          echo "should_build=$should_build" >> $GITHUB_OUTPUT
+          echo "release_id=$latest_id" >> $GITHUB_OUTPUT
+          echo "release_tag=$latest_tag" >> $GITHUB_OUTPUT
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: check-release
+    if: needs.check-release.outputs.should_build == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -16,31 +76,26 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build Docker Image (Latest)
-        run: |
-          docker build \
-            --build-arg STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }} \
-            --build-arg PAT_TOKEN=${{ secrets.PAT_TOKEN }} \
-            -f Dockerfile.latest \
-            -t rtcwdocker/rtcw:latest .
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            rtcwdocker/rtcw:latest
+            rtcwdocker/rtcw:${{ needs.check-release.outputs.release_id }}
+          build-args: |
+            STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }}
+            RTCWPRO_RELEASE_ID=${{ needs.check-release.outputs.release_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
-      - name: Push Docker Image (Latest)
-        run: docker push rtcwdocker/rtcw:latest
-
-      - name: Build Docker Image (dev)
-        run: |
-          docker build \
-            --build-arg STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }} \
-            --build-arg PAT_TOKEN=${{ secrets.PAT_TOKEN }} \
-            -f Dockerfile.dev \
-            -t rtcwdocker/rtcw:dev .
-
-      - name: Push Docker Image (dev)
-        run: docker push rtcwdocker/rtcw:dev
- 
   send-api-request:
     runs-on: ubuntu-latest
-    needs: [build-and-push]
+    needs: [check-release, build-and-push]
+    if: needs.check-release.outputs.should_build == 'true'
     steps:
       - name: Check Domain Availability
         id: check_domain
