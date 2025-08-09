@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -x
 
 readonly GAME_BASE="/home/game"
 readonly SETTINGS_BASE="${GAME_BASE}/settings"
