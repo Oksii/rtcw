@@ -18,6 +18,7 @@ WORKDIR /output
 # Download files
 ARG STATIC_URL_BASEGAME
 ARG RTCWPRO_RELEASE_ID=""
+ARG RTCWPRO_RELEASE_URL=""
 
 COPY fetchRtcwPro.sh /output/
 
@@ -26,7 +27,7 @@ RUN set -e \
     && echo "Downloading base game..." \
     && curl --retry 3 --retry-delay 1 -fsL "${STATIC_URL_BASEGAME}" -o /output/rtcw.zip \
     && echo "Downloading RTCWPro..." \
-    && datapath="/output/rtcwpro-data" bash /output/fetchRtcwPro.sh \
+    && datapath="/output/rtcwpro-data" RTCWPRO_RELEASE_URL="${RTCWPRO_RELEASE_URL}" bash /output/fetchRtcwPro.sh \
     && echo "Extracting files..." \
     && unzip -q -d /output/main /output/rtcw.zip \
     && unzip -q /output/main/mp_bin.pk3 -d /output/main \

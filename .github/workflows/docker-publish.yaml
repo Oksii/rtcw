@@ -31,7 +31,7 @@ jobs:
       - name: Check for new RTCWPro release
         id: check
         run: |
-          manual_url="${{ github.event.inputs.manual_release_url }}"
+          manual_url="${{ github.event.inputs.manual_release_url || '' }}"
           echo "manual_url=$manual_url" >> $GITHUB_OUTPUT
 
           if [[ -n "$manual_url" ]]; then
@@ -98,6 +98,11 @@ jobs:
           else
             echo "image_tags=rtcwdocker/rtcw:latest,rtcwdocker/rtcw:${{ needs.check-release.outputs.release_id }}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Debug build args
+        run: |
+          echo "Release ID: ${{ needs.check-release.outputs.release_id }}"
+          echo "Manual URL: ${{ needs.check-release.outputs.manual_url }}"
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
