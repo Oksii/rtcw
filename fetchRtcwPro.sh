@@ -2,70 +2,84 @@
 set -euo pipefail
 
 readonly datapath="${datapath:-/home/game}"
+readonly release_url="${RTCWPRO_RELEASE_URL:-}"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 log_error() { echo "[$(date '+%H:%M:%S')] ERROR: $*" >&2; }
 
 main() {
-    log "Fetching latest RTCWPro release"
+    log "Fetching RTCWPro server files"
     
     mkdir -p "${datapath}"
-    
+
+    if [[ -n "${release_url:-}" ]]; then
+        filename=$(basename "$release_url")
+        filepath="/tmp/$filename"
+
+        log "Manual RTCWPro URL provided: $release_url"
+        log "Downloading to $filepath"
+
+        if ! curl --retry 3 --retry-delay 1 -fsL "$release_url" -o "$filepath"; then
+            log_error "Failed to download from provided release URL"
+            exit 1
+        fi
+
+        extract_and_cleanup "$filepath"
+        return 0
+    fi
+
     if [[ -f "/rtcwpro/server.zip" ]]; then
         log "Using pre-cached server.zip"
         cp "/rtcwpro/server.zip" "/tmp/server.zip"
         extract_and_cleanup "/tmp/server.zip"
         return 0
     fi
-    
-    # Fetch latest release info
-    log "Fetching latest release info..."
+
+    log "Fetching latest release info from GitHub..."
     local release_info
     if ! release_info=$(curl --retry 3 --retry-delay 1 -fsL "https://api.github.com/repos/rtcwmp-com/rtcwPro/releases/latest"); then
-        log_error "Failed to fetch latest release info"
+        log_error "Failed to fetch release info"
         exit 1
     fi
-    
+
     local asset filename download_url
     asset=$(echo "$release_info" | jq -r '.assets[] | select(.name | test("^rtcwpro_[0-9]+_server.+zip$"))')
-    
+
     if [[ -z "$asset" || "$asset" == "null" ]]; then
         log_error "No matching server asset found"
         echo "$release_info" | jq '.assets[].name' >&2
         exit 1
     fi
-    
+
     filename=$(echo "$asset" | jq -r '.name')
     download_url=$(echo "$asset" | jq -r '.browser_download_url')
-    
+
     log "Downloading ${filename}..."
-    
     if ! curl --retry 3 --retry-delay 1 -fsL "$download_url" -o "/tmp/${filename}"; then
         log_error "Failed to download ${filename}"
         exit 1
     fi
-    
+
     extract_and_cleanup "/tmp/${filename}"
 }
 
 extract_and_cleanup() {
     local archive_path="$1"
     
-    if [[ ! -f "$archive_path" ]] || [[ ! -s "$archive_path" ]]; then
+    if [[ ! -f "$archive_path" || ! -s "$archive_path" ]]; then
         log_error "Archive file is missing or empty: $archive_path"
         exit 1
     fi
-    
+
     log "Extracting RTCWPro files to ${datapath}"
     
     if ! unzip -q "$archive_path" -d "$datapath"; then
         log_error "Failed to extract $archive_path"
         exit 1
     fi
-    
+
     log "Cleaning up unwanted files"
     
-    # Remove unwanted files
     rm -rf \
         "$archive_path" \
         "${datapath}/rtcwpro/qagame_mp_x86.dll" \

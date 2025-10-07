@@ -2,7 +2,6 @@ name: Docker Build and Release Detection
 
 on:
   schedule:
-    # Check for new releases every 6 hours
     - cron: '0 */6 * * *'
   push:
     branches:
@@ -14,6 +13,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      manual_release_url:
+        description: 'Manual RTCWPro release URL (optional)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   check-release:
@@ -22,18 +26,28 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
       release_id: ${{ steps.check.outputs.release_id }}
       release_tag: ${{ steps.check.outputs.release_tag }}
+      manual_url: ${{ steps.check.outputs.manual_url }}
     steps:
       - name: Check for new RTCWPro release
         id: check
         run: |
-          # Get latest release info
+          manual_url="${{ github.event.inputs.manual_release_url }}"
+          echo "manual_url=$manual_url" >> $GITHUB_OUTPUT
+
+          if [[ -n "$manual_url" ]]; then
+            echo "Manual release URL provided. Skipping GitHub release check."
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "release_id=dev" >> $GITHUB_OUTPUT
+            echo "release_tag=manual" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           latest_release=$(curl -fsL "https://api.github.com/repos/rtcwmp-com/rtcwPro/releases/latest")
           latest_id=$(echo "$latest_release" | jq -r '.id')
           latest_tag=$(echo "$latest_release" | jq -r '.tag_name')
-          
-          # Check if we already have this release built
+
           existing_tags=$(curl -fsL "https://registry.hub.docker.com/v2/repositories/rtcwdocker/rtcw/tags/" | jq -r '.results[].name' 2>/dev/null || echo "")
-          
+
           should_build="false"
           if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force_build }}" == "true" ]]; then
@@ -54,7 +68,7 @@ jobs:
           else
             echo "Release $latest_tag already built"
           fi
-          
+
           echo "should_build=$should_build" >> $GITHUB_OUTPUT
           echo "release_id=$latest_id" >> $GITHUB_OUTPUT
           echo "release_tag=$latest_tag" >> $GITHUB_OUTPUT
@@ -76,18 +90,26 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Determine Build Tags
+        id: tags
+        run: |
+          if [[ "${{ needs.check-release.outputs.release_id }}" == "dev" ]]; then
+            echo "image_tags=rtcwdocker/rtcw:dev" >> $GITHUB_OUTPUT
+          else
+            echo "image_tags=rtcwdocker/rtcw:latest,rtcwdocker/rtcw:${{ needs.check-release.outputs.release_id }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: Dockerfile
           push: true
-          tags: |
-            rtcwdocker/rtcw:latest
-            rtcwdocker/rtcw:${{ needs.check-release.outputs.release_id }}
+          tags: ${{ steps.tags.outputs.image_tags }}
           build-args: |
             STATIC_URL_BASEGAME=${{ secrets.STATIC_URL_BASEGAME }}
             RTCWPRO_RELEASE_ID=${{ needs.check-release.outputs.release_id }}
+            RTCWPRO_RELEASE_URL=${{ needs.check-release.outputs.manual_url }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
