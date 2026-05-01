@@ -11,6 +11,12 @@ Minor additions/adjustments to be more consistent with our orchestration needs.
  * Prepare a list of maps that need processing first by blacklisting skipped maps found in global.sh rather than unzipping every map and throwing it against it. Saves an incredible amount of time booting. 
  * Allow dynamic loading of any CONF_ env var and check against server.cfg 
 
+> **Important:** This image runs a 32-bit i386 binary on a 64-bit host. Docker's default seccomp profile blocks 32-bit socket syscalls on modern kernels/runc versions, causing the server to fail with `socket: Function not implemented`. You must add the following to any service using this image:
+> ```yaml
+> security_opt:
+>   - seccomp=unconfined
+> ```
+
 # RTCW Match Server
 
 This Docker image will download the required RTCW maps as specified in the
