@@ -25,6 +25,7 @@ declare -A CONFIG=(
     [STARTMAP]="${STARTMAP:-mp_ice}"
     [STATS_SUBMIT]="${STATS_SUBMIT:-0}"
     [STATS_URL]="${STATS_URL:-https://rtcwproapi.donkanator.com/submit}"
+    [DISCORD_WEBHOOK_URL]="${DISCORD_WEBHOOK_URL:-}"
     [XMAS_FILE]="${XMAS_FILE:-http://rtcw.life/files/mapdb/mp_gathermas.pk3}"
     [XMAS]="${XMAS:-false}"
     [SKIP_MAP_PROCESSING]="${SKIP_MAP_PROCESSING:-false}"

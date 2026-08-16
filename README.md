@@ -86,6 +86,7 @@ TIMEOUTLIMIT         | Maximum number of pauses per map side | 1
 SERVERCONF           | The value for RtcwPro's `g_customconfig` | `defaultcomp`.
 STATS_SUBMIT         | Push stats to an external API? | Disabled, set to `1` to enable.
 STATS_URL            | API address to push stats data | `https://rtcwproapi.donkanator.com/submit`
+DISCORD_WEBHOOK_URL  | Discord webhook URL for post-match stats and demo uploads | None.
 
 
 Extra configuration can be prepended to the `server.cfg` by mounting a
